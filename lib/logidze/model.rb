@@ -65,6 +65,29 @@ module Logidze
           )
         end
       end
+
+      def create_logidze_version(timestamp: :updated_at, only: nil, except: nil, limit: nil, debounce_time: nil)
+        args = %w[null null null]
+
+        args[0] = "(#{timestamp})::timestamp with time zone" if has_attribute?(timestamp)
+        args[1] = limit if limit
+        args[2] = debounce_time if debounce_time
+
+        columns = only || except
+
+        if columns
+          args[3] = "'{#{columns.join(",")}}'"
+          args[4] = only ? "true" : "false"
+        end
+
+        without_logging do
+          where.not(log_data: nil).update_all(
+            <<~SQL
+              log_data = logidze_append(log_data, hstore_to_jsonb_loose(hstore(#{quoted_table_name})), #{args.join(", ")})
+          SQL
+          )
+        end
+      end
     end
 
     # Use this to convert Ruby time to milliseconds
@@ -223,6 +246,14 @@ module Logidze
 
     def create_logidze_snapshot!(**opts)
       self.class.where(self.class.primary_key => id).create_logidze_snapshot(**opts)
+
+      reload_log_data
+    end
+
+    def create_logidze_version!(**opts)
+      return create_logidze_snapshot!(**opts) if log_data.nil?
+
+      self.class.where(self.class.primary_key => id).create_logidze_version(**opts)
 
       reload_log_data
     end

@@ -1,17 +1,10 @@
 CREATE OR REPLACE FUNCTION logidze_logger() RETURNS TRIGGER AS $body$
-  -- version: 1
+  -- version: 2
   DECLARE
     changes jsonb;
-    version jsonb;
     snapshot jsonb;
-    new_v integer;
-    size integer;
     history_limit integer;
     debounce_time integer;
-    current_version integer;
-    merged jsonb;
-    iterator integer;
-    item record;
     columns text[];
     include_columns boolean;
     ts timestamp with time zone;
@@ -53,37 +46,8 @@ CREATE OR REPLACE FUNCTION logidze_logger() RETURNS TRIGGER AS $body$
         RETURN NEW;
       END IF;
 
-      history_limit := NULLIF(TG_ARGV[0], 'null');
-      debounce_time := NULLIF(TG_ARGV[4], 'null');
-
-      current_version := (NEW.log_data->>'v')::int;
-
-      IF ts_column IS NULL THEN
-        ts := statement_timestamp();
-      ELSE
-        ts := (to_jsonb(NEW.*)->>ts_column)::timestamp with time zone;
-        IF ts IS NULL OR ts = (to_jsonb(OLD.*)->>ts_column)::timestamp with time zone THEN
-          ts := statement_timestamp();
-        END IF;
-      END IF;
-
       IF NEW = OLD THEN
         RETURN NEW;
-      END IF;
-
-      IF current_version < (NEW.log_data#>>'{h,-1,v}')::int THEN
-        iterator := 0;
-        FOR item in SELECT * FROM jsonb_array_elements(NEW.log_data->'h')
-        LOOP
-          IF (item.value->>'v')::int > current_version THEN
-            NEW.log_data := jsonb_set(
-              NEW.log_data,
-              '{h}',
-              (NEW.log_data->'h') - iterator
-            );
-          END IF;
-          iterator := iterator + 1;
-        END LOOP;
       END IF;
 
       changes := '{}';
@@ -96,52 +60,19 @@ CREATE OR REPLACE FUNCTION logidze_logger() RETURNS TRIGGER AS $body$
         );
       END IF;
 
-      changes = changes - 'log_data';
-
-      IF columns IS NOT NULL THEN
-        changes = logidze_filter_keys(changes, columns, include_columns);
+      IF ts_column IS NULL THEN
+        ts := statement_timestamp();
+      ELSE
+        ts := (to_jsonb(NEW.*)->>ts_column)::timestamp with time zone;
+        IF ts IS NULL OR ts = (to_jsonb(OLD.*)->>ts_column)::timestamp with time zone THEN
+          ts := statement_timestamp();
+        END IF;
       END IF;
 
-      IF changes = '{}' THEN
-        RETURN NEW;
-      END IF;
+      history_limit := NULLIF(TG_ARGV[0], 'null');
+      debounce_time := NULLIF(TG_ARGV[4], 'null');
 
-      new_v := (NEW.log_data#>>'{h,-1,v}')::int + 1;
-
-      size := jsonb_array_length(NEW.log_data->'h');
-      version := logidze_version(new_v, changes, ts);
-
-      IF (
-        debounce_time IS NOT NULL AND
-        (version->>'ts')::bigint - (NEW.log_data#>'{h,-1,ts}')::text::bigint <= debounce_time
-      ) THEN
-        -- merge new version with the previous one
-        new_v := (NEW.log_data#>>'{h,-1,v}')::int;
-        version := logidze_version(new_v, (NEW.log_data#>'{h,-1,c}')::jsonb || changes, ts);
-        -- remove the previous version from log
-        NEW.log_data := jsonb_set(
-          NEW.log_data,
-          '{h}',
-          (NEW.log_data->'h') - (size - 1)
-        );
-      END IF;
-
-      NEW.log_data := jsonb_set(
-        NEW.log_data,
-        ARRAY['h', size::text],
-        version,
-        true
-      );
-
-      NEW.log_data := jsonb_set(
-        NEW.log_data,
-        '{v}',
-        to_jsonb(new_v)
-      );
-
-      IF history_limit IS NOT NULL AND history_limit <= size THEN
-        NEW.log_data := logidze_compact_history(NEW.log_data, size - history_limit + 1);
-      END IF;
+      NEW.log_data = logidze_append(NEW.log_data, changes, ts, history_limit, debounce_time, columns, include_columns);
     END IF;
 
     return NEW;
