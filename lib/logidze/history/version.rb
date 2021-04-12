@@ -11,6 +11,8 @@ module Logidze
       # Responsible ID
       RESPONSIBLE = "r"
       # Meta Responsible ID
+      META_ACCUMULATE = "_acc"
+      # Meta Responsible ID
       META_RESPONSIBLE = "_r"
       # Meta key
       META = "m"

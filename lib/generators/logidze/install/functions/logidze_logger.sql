@@ -9,7 +9,6 @@ CREATE OR REPLACE FUNCTION logidze_logger() RETURNS TRIGGER AS $body$
     history_limit integer;
     debounce_time integer;
     current_version integer;
-    merged jsonb;
     iterator integer;
     item record;
     columns text[];
@@ -112,8 +111,10 @@ CREATE OR REPLACE FUNCTION logidze_logger() RETURNS TRIGGER AS $body$
       version := logidze_version(new_v, changes, ts);
 
       IF (
-        debounce_time IS NOT NULL AND
-        (version->>'ts')::bigint - (NEW.log_data#>'{h,-1,ts}')::text::bigint <= debounce_time
+        (NEW.log_data#>'{h,-1,m,_acc}' IS NOT NULL) OR (
+          debounce_time IS NOT NULL AND
+          (version->>'ts')::bigint - (NEW.log_data#>'{h,-1,ts}')::text::bigint <= debounce_time
+        )
       ) THEN
         -- merge new version with the previous one
         new_v := (NEW.log_data#>>'{h,-1,v}')::int;

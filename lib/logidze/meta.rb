@@ -8,6 +8,11 @@ module Logidze # :nodoc:
       wrapper.wrap_with(meta, &block)
     end
 
+    def with_accumulation(transactional: true, &block)
+      meta = {Logidze::History::Version::META_ACCUMULATE => true}
+      with_meta(meta, transactional: transactional, &block)
+    end
+
     def with_responsible(responsible_id, transactional: true, &block)
       return yield if responsible_id.nil?
 

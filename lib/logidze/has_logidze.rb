@@ -10,9 +10,10 @@ module Logidze
     module ClassMethods # :nodoc:
       # Include methods to work with history.
       #
-      def has_logidze(ignore_log_data: Logidze.ignore_log_data_by_default)
+      def has_logidze(ignore_log_data: Logidze.ignore_log_data_by_default, accumulate_logs: false)
         include Logidze::IgnoreLogData
         include Logidze::Model
+        include Logidze::Accumulate if accumulate_logs
 
         @ignore_log_data = ignore_log_data
 

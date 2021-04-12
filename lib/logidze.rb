@@ -8,6 +8,7 @@ module Logidze
   require "ruby-next"
   require "logidze/history"
   require "logidze/model"
+  require "logidze/accumulate"
   require "logidze/versioned_association"
   require "logidze/ignore_log_data"
   require "logidze/has_logidze"
