@@ -339,6 +339,34 @@ Logidze.with_responsible(user.id, transactional: false) do
 end
 ```
 
+### Explicit versioning control
+
+If you want to control version incrementing explicitly, you can turn on logs accumulation with the `:accumulate_logs` option:
+
+```ruby
+class Post < ActiveRecord::Base
+  has_logidze accumulate_logs: true
+end
+```
+
+With this option, Logidze will accumulate all changes without incrementing version number unless `#freeze_logidze_version!` is called:
+
+```ruby
+post = Post.create!(title: "bar")
+post.reload.log_size #=> 1
+
+post.update!(title: "baz")
+post.reload.log_size #=> 1
+
+post.freeze_logidze_version!
+
+post.update!(title: "foobar")
+post.reload.log_size #=> 2
+
+post.update!(title: "foobarbaz")
+post.reload.log_size #=> 2
+```
+
 ### Disable logging temporary
 
 If you want to make update without logging (e.g., mass update), you can turn it off the following way:

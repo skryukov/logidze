@@ -2,6 +2,32 @@
 
 ## master (unreleased)
 
+- Add logs accumulation. ([@skryukov][])
+
+Now Logidze can accumulate all changes without incrementing version number unless `#freeze_logidze_version!` is called. One can use this feature to control version creation explicitly.
+
+Usage:
+
+```ruby
+class Post < ActiveRecord::Base
+  has_logidze accumulate_logs: true
+end
+
+post = Post.create!(title: "bar")
+post.reload.log_size #=> 1
+
+post.update!(title: "baz")
+post.reload.log_size #=> 1
+
+post.freeze_logidze_version!
+
+post.update!(title: "foobar")
+post.reload.log_size #=> 2
+
+post.update!(title: "foobarbaz")
+post.reload.log_size #=> 2
+```
+
 ## 1.1.0 (2021-03-31)
 
 - Add pending upgrade checks [Experimental]. ([@skryukov][])
@@ -347,3 +373,4 @@ This is a quick fix for a more general problem (see [#59](https://github.com/pal
 [@duderman]: https://github.com/duderman
 [@oleg-kiviljov]: https://github.com/oleg-kiviljov
 [@skryukov]: https://github.com/skryukov
+[@bf4]: https://github.com/bf4
