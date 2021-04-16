@@ -33,6 +33,11 @@ module Logidze
         Logidze.without_logging(&block)
       end
 
+      # Alias for Logidze.with_forced_logging
+      def with_forced_logging(&block)
+        Logidze.with_forced_logging(&block)
+      end
+
       # rubocop: disable Naming/PredicateName
       def has_logidze?
         true
@@ -42,6 +47,11 @@ module Logidze
       # Nullify log_data column for a association
       def reset_log_data
         without_logging { update_all(log_data: nil) }
+      end
+
+      # Append Logidze version
+      def append_logidze_version
+        with_forced_logging { update_all("log_data = log_data") }
       end
 
       # Initialize log_data with the current state if it's null
@@ -223,6 +233,12 @@ module Logidze
 
     def create_logidze_snapshot!(**opts)
       self.class.where(self.class.primary_key => id).create_logidze_snapshot(**opts)
+
+      reload_log_data
+    end
+
+    def append_logidze_version!
+      self.class.where(self.class.primary_key => id).append_logidze_version
 
       reload_log_data
     end

@@ -27,6 +27,9 @@ module Logidze
       class_option :only_trigger, type: :boolean, optional: true,
                                   desc: "Create trigger-only migration"
 
+      class_option :manual_control, type: :boolean, optional: true,
+                                    desc: "Disable trigger by default"
+
       class_option :path, type: :string, optional: true, desc: "Specify path to the model file"
 
       class_option :except, type: :array, optional: true
@@ -91,6 +94,10 @@ module Logidze
 
         def update?
           options[:update]
+        end
+
+        def manual_control?
+          options[:manual_control]
         end
 
         def filtered_columns

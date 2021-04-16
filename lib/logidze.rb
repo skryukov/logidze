@@ -37,6 +37,24 @@ module Logidze
       with_logidze_setting("logidze.disabled", "on") { yield }
     end
 
+    # Temporary enable DB triggers.
+    #
+    # @example
+    #   Logidze.with_logging { Post.update_all(active: true) }
+    def with_logging
+      with_logidze_setting("logidze.disabled", "off") { yield }
+    end
+
+    # Temporary force log creation.
+    #
+    # @example
+    #   Logidze.with_forced_logging { Post.update_all(active: true) }
+    def with_forced_logging
+      with_logging do
+        with_logidze_setting("logidze.forced_logging", "on") { yield }
+      end
+    end
+
     # Instruct Logidze to create a full snapshot for the new versions, not a diff
     #
     # @example

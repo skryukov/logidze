@@ -9,7 +9,6 @@ CREATE OR REPLACE FUNCTION logidze_logger() RETURNS TRIGGER AS $body$
     history_limit integer;
     debounce_time integer;
     current_version integer;
-    merged jsonb;
     iterator integer;
     item record;
     columns text[];
@@ -50,6 +49,12 @@ CREATE OR REPLACE FUNCTION logidze_logger() RETURNS TRIGGER AS $body$
         IF snapshot#>>'{h, -1, c}' != '{}' THEN
           NEW.log_data := snapshot;
         END IF;
+
+        RETURN NEW;
+      END IF;
+
+      IF (coalesce(current_setting('logidze.forced_logging', true), '') <> 'on') AND
+         NEW = OLD THEN
         RETURN NEW;
       END IF;
 
@@ -65,10 +70,6 @@ CREATE OR REPLACE FUNCTION logidze_logger() RETURNS TRIGGER AS $body$
         IF ts IS NULL OR ts = (to_jsonb(OLD.*)->>ts_column)::timestamp with time zone THEN
           ts := statement_timestamp();
         END IF;
-      END IF;
-
-      IF NEW = OLD THEN
-        RETURN NEW;
       END IF;
 
       IF current_version < (NEW.log_data#>>'{h,-1,v}')::int THEN
@@ -88,7 +89,8 @@ CREATE OR REPLACE FUNCTION logidze_logger() RETURNS TRIGGER AS $body$
 
       changes := '{}';
 
-      IF (coalesce(current_setting('logidze.full_snapshot', true), '') = 'on') THEN
+      IF (coalesce(current_setting('logidze.forced_logging', true), '') = 'on') OR
+         (coalesce(current_setting('logidze.full_snapshot', true), '') = 'on') THEN
         changes = hstore_to_jsonb_loose(hstore(NEW.*));
       ELSE
         changes = hstore_to_jsonb_loose(
